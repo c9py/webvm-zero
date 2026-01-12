@@ -1,0 +1,36 @@
+FROM --platform=i386 i386/debian:bookworm
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Update and install base packages
+RUN apt-get clean && apt-get update && apt-get -y upgrade
+RUN apt-get -y install apt-utils gcc \
+    python3 python3-pip python3-venv vim unzip \
+    fakeroot dbus base whiptail hexedit \
+    patch wamerican ucf manpages \
+    file luajit make lua5.4 dialog curl wget \
+    less cowsay netcat-openbsd git nodejs npm \
+    procps htop nano tree jq
+
+# Create user
+RUN useradd -m user && echo "user:password" | chpasswd
+
+# Copy examples and agent-zero
+COPY --chown=user:user ./examples /home/user/examples
+COPY --chown=user:user ./agent-zero /home/user/agent-zero
+
+# Set up agent-zero directory
+RUN chmod -R +x /home/user/examples/lua
+RUN chmod -R 755 /home/user/agent-zero
+
+# Create startup script for agent-zero
+RUN echo '#!/bin/bash\necho "Welcome to WebVM-Zero!"\necho "Agent Zero is available at ~/agent-zero"\necho "To start Agent Zero: cd ~/agent-zero && python3 main.py"\nexec /bin/bash' > /home/user/start.sh && chmod +x /home/user/start.sh
+
+# Set working directory
+WORKDIR /home/user/
+
+# Environment variables
+ENV HOME="/home/user" TERM="xterm" USER="user" SHELL="/bin/bash" EDITOR="vim" LANG="en_US.UTF-8" LC_ALL="C"
+ENV AGENT_ZERO_HOME="/home/user/agent-zero"
+
+RUN echo 'root:password' | chpasswd
+CMD [ "/bin/bash", "-c", "/home/user/start.sh" ]
