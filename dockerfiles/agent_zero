@@ -17,6 +17,9 @@ RUN apt-get update && \
     /var/log/* \
     /tmp/*
 
+# Remove PEP 668 restriction to allow pip install without venv
+RUN rm -f /usr/lib/python3.11/EXTERNALLY-MANAGED
+
 # Create user
 RUN useradd -m user && echo "user:password" | chpasswd
 
@@ -37,12 +40,13 @@ COPY --chown=user:user ./agent-zero/knowledge /home/user/agent-zero/knowledge/
 COPY --chown=user:user ./agent-zero/lib /home/user/agent-zero/lib/
 COPY --chown=user:user ./agent-zero/conf /home/user/agent-zero/conf/
 
-# Create required directories
+# Create required directories and fix permissions
 RUN mkdir -p /home/user/agent-zero/memory \
     /home/user/agent-zero/logs \
     /home/user/agent-zero/tmp \
-    /home/user/agent-zero/work_dir && \
-    chown -R user:user /home/user/agent-zero
+    /home/user/agent-zero/work_dir \
+    /home/user/.cache/pip && \
+    chown -R user:user /home/user
 
 # Startup message
 RUN echo 'echo "=== WebVM-Zero ===" && echo "Agent Zero: ~/agent-zero" && echo "Run: cd ~/agent-zero && pip3 install -r requirements.txt && python3 run_ui.py"' >> /home/user/.bashrc
