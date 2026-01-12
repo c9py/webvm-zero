@@ -1,36 +1,54 @@
-FROM --platform=i386 i386/debian:bookworm
+FROM --platform=i386 i386/debian:bookworm-slim
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Update and install base packages
-RUN apt-get clean && apt-get update && apt-get -y upgrade
-RUN apt-get -y install apt-utils gcc \
-    python3 python3-pip python3-venv vim unzip \
-    fakeroot dbus base whiptail hexedit \
-    patch wamerican ucf manpages \
-    file luajit make lua5.4 dialog curl wget \
-    less cowsay netcat-openbsd git nodejs npm \
-    procps htop nano tree jq
+# Minimal package installation - aggressively remove docs and locales
+RUN apt-get update && \
+    apt-get -y install --no-install-recommends \
+    python3-minimal python3-pip vim-tiny \
+    curl wget git ca-certificates \
+    procps && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* \
+    /usr/share/doc/* \
+    /usr/share/man/* \
+    /usr/share/locale/* \
+    /usr/share/info/* \
+    /var/cache/apt/archives/* \
+    /var/log/* \
+    /tmp/*
 
 # Create user
 RUN useradd -m user && echo "user:password" | chpasswd
 
-# Copy examples and agent-zero
-COPY --chown=user:user ./examples /home/user/examples
-COPY --chown=user:user ./agent-zero /home/user/agent-zero
+# Copy only essential agent-zero core (excluding docs, webui, tests)
+COPY --chown=user:user ./agent-zero/agent.py /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/initialize.py /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/models.py /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/preload.py /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/prepare.py /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/run_ui.py /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/requirements.txt /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/README.md /home/user/agent-zero/
+COPY --chown=user:user ./agent-zero/python /home/user/agent-zero/python/
+COPY --chown=user:user ./agent-zero/prompts /home/user/agent-zero/prompts/
+COPY --chown=user:user ./agent-zero/agents /home/user/agent-zero/agents/
+COPY --chown=user:user ./agent-zero/instruments /home/user/agent-zero/instruments/
+COPY --chown=user:user ./agent-zero/knowledge /home/user/agent-zero/knowledge/
+COPY --chown=user:user ./agent-zero/lib /home/user/agent-zero/lib/
+COPY --chown=user:user ./agent-zero/conf /home/user/agent-zero/conf/
 
-# Set up agent-zero directory
-RUN chmod -R +x /home/user/examples/lua
-RUN chmod -R 755 /home/user/agent-zero
+# Create required directories
+RUN mkdir -p /home/user/agent-zero/memory \
+    /home/user/agent-zero/logs \
+    /home/user/agent-zero/tmp \
+    /home/user/agent-zero/work_dir && \
+    chown -R user:user /home/user/agent-zero
 
-# Create startup script for agent-zero
-RUN echo '#!/bin/bash\necho "Welcome to WebVM-Zero!"\necho "Agent Zero is available at ~/agent-zero"\necho "To start Agent Zero: cd ~/agent-zero && python3 main.py"\nexec /bin/bash' > /home/user/start.sh && chmod +x /home/user/start.sh
+# Startup message
+RUN echo 'echo "=== WebVM-Zero ===" && echo "Agent Zero: ~/agent-zero" && echo "Run: cd ~/agent-zero && pip3 install -r requirements.txt && python3 run_ui.py"' >> /home/user/.bashrc
 
-# Set working directory
 WORKDIR /home/user/
-
-# Environment variables
-ENV HOME="/home/user" TERM="xterm" USER="user" SHELL="/bin/bash" EDITOR="vim" LANG="en_US.UTF-8" LC_ALL="C"
-ENV AGENT_ZERO_HOME="/home/user/agent-zero"
+ENV HOME="/home/user" TERM="xterm" USER="user" SHELL="/bin/bash" LANG="C.UTF-8" LC_ALL="C"
 
 RUN echo 'root:password' | chpasswd
-CMD [ "/bin/bash", "-c", "/home/user/start.sh" ]
+CMD [ "/bin/bash" ]
